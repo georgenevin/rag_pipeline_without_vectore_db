@@ -1,0 +1,11 @@
+beautifulsoup4
+requests
+langchain
+tiktoken
+langchain-core
+mistralai
+datasets
+numpy
+langchain-community
+rank_bm25
+ragas
