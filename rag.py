@@ -351,11 +351,11 @@ def query(query_text: str, top_k: int = 3) -> str:
     context = "\n\n".join(context_parts)
     
     # Initialize LLM
-    api_key = groq_api_key
+    api_key = mistral_api_key
     if not api_key:
         raise ValueError("GROY_API_KEY environment variable not set")
     
-    client = Groq(api_key=api_key)
+    client = Mistral(api_key=api_key)
     
     # Create the message with context
     user_message = f"""You are a helpful AI assistant answering questions about Infopark news and developments.
@@ -370,8 +370,8 @@ Question: {query_text}
 Please provide a clear and concise answer based on the context provided."""
     
     
-    response =  client.chat.completions.create(
-        model="openai/gpt-oss-120b",
+    response =   client.chat.complete(
+        model="mistral-large-latest",
         messages=[
             {
                 "role": "user",
@@ -459,9 +459,10 @@ def target(inputs: dict) -> dict:
     run_type="llm"
 )
 def run_judge(prompt: str) -> dict:
-    judge_client = Groq()
-    response = judge_client.chat.completions.create(
-        model=JUDGE_MODEL,
+    # judge_client = Groq()
+    judge_client =  Mistral(api_key=mistral_api_key)
+    response = judge_client.chat.complete(
+        model="mistral-small-2603",
         messages=[
             {
                 "role": "user",
