@@ -1,140 +1,132 @@
-# RAG Pipeline Without a Vector Database
+# RAG Pipeline (without a vector DB)
 
-A lightweight Retrieval-Augmented Generation (RAG) pipeline that scrapes news articles, chunks and embeds them, and answers questions over them — without using a dedicated vector database. This repo demonstrates a simple, file-based approach that stores embeddings in JSONL and performs retrieval with a hybrid BM25 + cosine-similarity approach.
+A lightweight Retrieval-Augmented Generation (RAG) pipeline for scraping Infopark news, chunking article text, generating embeddings with Mistral, storing embeddings as JSONL, and answering questions by retrieving and ranking relevant chunks.
 
-## Table of contents
-
-- [How it works](#how-it-works)
-- [Features](#features)
-- [Prerequisites](#prerequisites)
-- [Setup](#setup)
-- [Usage](#usage)
-- [Project structure](#project-structure)
-- [Notes & configuration](#notes--configuration)
-- [Contributing](#contributing)
-- [License](#license)
-
-## How it works
-
-1. Scrape — Fetches article links and content from a target site (the example uses Infopark's news page) and converts HTML into clean Markdown while preserving headings, lists, tables, links, etc.
-2. Chunk — Splits the scraped Markdown into token-sized chunks using LangChain's `RecursiveCharacterTextSplitter` and measures tokens with `tiktoken`.
-3. Embed — Generates embeddings for each chunk using Mistral AI's `mistral-embed` model.
-4. Store — Saves chunk text + embeddings as plain JSON lines (`embeddings.jsonl`) — no external vector store required.
-5. Retrieve — At query time, combines BM25 keyword retrieval (`langchain_community.retrievers.BM25Retriever`) with cosine similarity computed directly with NumPy over the loaded embeddings.
-6. Generate — Passes the combined retrieved context + question to Mistral's chat model (`mistral-large-latest`) to produce a grounded answer.
+This repo is intended as a small, opinionated example showing how to implement a file-based RAG workflow without a dedicated vector database — embeddings are stored in JSONL and ranked with BM25 + cosine similarity.
 
 ## Features
 
-- HTML-to-Markdown scraper with support for headings, lists, tables, blockquotes, and inline formatting
-- Token-aware chunking via `tiktoken` + LangChain's recursive splitter
-- Embeddings generated via Mistral AI (`mistral-embed`)
-- Hybrid retrieval: BM25 (keyword) + cosine similarity (semantic), no vector DB required
-- Answer generation via Mistral chat completion (`mistral-large-latest`)
-- A simple evaluation scaffold (`evaluate_rag_system`) to compare generated answers against ground truths
+- Scrapes Infopark news pages into a single markdown corpus
+- Splits markdown into token-aware chunks (tiktoken + langchain-text-splitters)
+- Generates embeddings using Mistral's embedding model
+- Stores embeddings as newline-delimited JSON (embeddings.jsonl)
+- Retrieval via BM25 + cosine similarity (no external vector DB required)
+- Evaluation helpers using Langsmith and a Mistral-based judge model
 
-## Prerequisites
+## Stack
 
-- Python (see `.python-version`)
-- A Mistral AI API key
+- Language: Python 3.12+
+- Notable libraries: mistralai, langchain, langchain-text-splitters, langsmith, numpy, tiktoken
 
-## Setup
+## Quickstart
 
-1. Clone the repo:
+1. Clone the repository
 
 ```bash
-git clone https://github.com/georgenevin/rag_pipeline_without_vectore_db.git
+git clone https://github.com/georgenevin/rag_pipeline_without_vectore_db
 cd rag_pipeline_without_vectore_db
 ```
 
-2. Install dependencies:
+2. Install dependencies
+
+If you prefer the requirements file:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Alternatively, if using `uv` and the included `uv.lock`:
+Or install the package in editable mode:
 
 ```bash
-uv sync
+pip install -e .
 ```
 
-3. Create a `.env` file in the project root with your API key:
+3. Provide API credentials
 
-```
-API_KEY=<your-mistral-api-key>
-```
+This project uses Mistral for embeddings and judge/chat. Set one of the following environment variables:
 
-Note: the repo currently includes a `.env` file in the tree. Do not commit real secrets — ensure `.env` is listed in `.gitignore` before committing any changes.
+- MISTRAL_API_KEY (preferred)
+- API_KEY (fallback)
 
-## Usage
+You can add a .env file at the project root with:
 
-The pipeline is implemented in `rag.py` and runs in three stages (each callable from the `if __name__ == "__main__":` block):
-
-1. Scrape articles into Markdown
-
-```python
-main()
+```env
+MISTRAL_API_KEY=sk-<your-key>
+GROQ_API_KEY=<optional-groq-key>
 ```
 
-This fetches news article links from the configured `BASE_URL` and writes them to `infopark_news.md` (or an alternate file depending on configuration).
+Note: The repository currently includes example files and a committed embeddings.jsonl — remove or replace those if you want a fresh run.
 
-2. Chunk and embed
+4. Scrape the site (writes infopark_news.md)
 
-```python
-chunking()
+```bash
+python -m rag_pipeline.scraper
 ```
 
-This splits the scraped Markdown into token-sized chunks, generates embeddings with the configured embedding model, and saves results to `embeddings.jsonl`.
+5. Build embeddings from the markdown corpus
 
-3. Query the RAG system
-
-```python
-result = query("What is Lulu Group's next project in Infopark Kochi Phase 2?")
-print(result)
+```bash
+python -c "from rag_pipeline import build_embeddings_dataset; build_embeddings_dataset()"
 ```
 
-This loads `embeddings.jsonl`, retrieves relevant chunks using BM25 + cosine similarity, and generates an answer using the chat model.
-
-You can also run the whole script directly:
+6. Run a sample query
 
 ```bash
 python rag.py
 ```
 
-## Project structure
+Or use the package entrypoint:
 
-```
-scrapping/
-├── rag.py                  # Thin compatibility entrypoint for the original workflow
-├── rag_pipeline/           # Structured package for scraping, embeddings, and retrieval
-│   ├── __init__.py
-│   ├── __main__.py         # CLI entrypoint: python -m rag_pipeline scrape|embed|query
-│   ├── config.py           # Shared constants and environment helpers
-│   ├── scraper.py          # HTML-to-Markdown scraping and article formatting
-│   ├── embeddings.py       # Chunking, embedding generation, and JSONL persistence
-│   └── retrieval.py        # Hybrid BM25 + cosine retrieval and answer generation
-├── embeddings.jsonl        # Stored chunk embeddings (generated)
-├── infopark_news.md        # Scraped news articles in Markdown (generated)
-├── news_chunk_1.md         # Chunked article batch (generated)
-├── requirements.txt
-├── pyproject.toml
-├── uv.lock
-├── .python-version
-├── WINDOWS_SETUP.md        # Windows-specific setup notes
-├── INDEX.md
-└── .gitignore
+```bash
+python -m rag_pipeline
 ```
 
-## Notes & configuration
+7. Run evaluations (optional, uses Langsmith)
 
-- Retrieval blends two signals: BM25 for exact keyword matches and cosine similarity over Mistral embeddings for semantic matches — this gives reasonable recall without a vector database.
-- `evaluate_rag_system` provides a starting point for measuring retrieval + generation quality; you can extend scoring logic to your needs.
-- The scraper targets `div.news_title_outer` and `div.news_body` selectors for Infopark's site. To target a different site, update `TARGET_SELECTORS` and `BASE_URL` in `rag.py` and adapt selectors as needed.
-- If you prefer a different environment variable name for clarity (for example, `MISTRAL_API_KEY`), update your local `.env` and the code that reads it accordingly.
+```bash
+python -c "from rag_pipeline import eval_caller; eval_caller()"
+```
+
+## Configuration
+
+Key configuration lives in rag_pipeline/config.py:
+
+- BASE_URL: Base website (default: https://infopark.in)
+- NEWS_INDEX_URL: listing of news
+- TARGET_SELECTORS: CSS selectors used to extract title and body (default: ["div.news_title_outer", "div.news_body"]) — update these if the site structure changes.
+- CHUNK_SIZE: token-based chunking size used by the text splitter
+- EMBEDDINGS_FILE / OUTPUT_FILE: paths for saved artifacts
+- get_mistral_api_key() helper that reads MISTRAL_API_KEY or API_KEY from env
+
+## Files of interest
+
+```
+rag_pipeline/        main package (scraper, embeddings, retrieval, evaluator)
+rag.py               convenience entrypoint and compatibility aliases
+infopark_news.md     scraped article corpus (markdown)
+news_chunk_1.md      example chunked markdown
+embeddings.jsonl     stored embeddings (newline-delimited JSON)
+pyproject.toml       package metadata / deps
+requirements.txt     install-time dependencies
+```
+
+## Notes & recommendations
+
+- API keys are secrets: do not commit real keys. The repo currently expects a `.env` file at the project root for local development; consider adding a `.env.example` with placeholder names.
+- The repository includes a committed `embeddings.jsonl`. If you want reproducible runs, either regenerate this file or remove it from Git and add it to .gitignore.
+- The scraper relies on CSS selectors; if the Infopark site HTML changes, update TARGET_SELECTORS in rag_pipeline/config.py.
+- The current flow stores embeddings in memory as numpy arrays when loaded; large corpora will require a different storage strategy (vector DB) for scaling.
 
 ## Contributing
 
-Contributions, issues, and feature requests are welcome. Please open an issue or submit a pull request with a clear description of changes.
+Contributions, issues, and feature requests are welcome. If you'd like me to:
+
+- add a `.env.example`
+- remove or regenerate committed embeddings
+- add a CI smoke test for the pipeline
+- pin dependencies in a lockfile or add GitHub Actions for lint/testing
+
+I can make those changes — tell me which one to do next and I will update the repo.
 
 ## License
 
