@@ -104,16 +104,23 @@ python rag.py
 ## Project structure
 
 ```
-rag_pipeline_without_vectore_db/
-├── rag.py               # Scraper, chunker, embedder, and RAG query pipeline
-├── embeddings.jsonl     # Stored chunk embeddings (generated)
-├── infopark_news.md     # Scraped news articles in Markdown (generated)
-├── news_chunk_1.md      # Chunked article batch (generated)
+scrapping/
+├── rag.py                  # Thin compatibility entrypoint for the original workflow
+├── rag_pipeline/           # Structured package for scraping, embeddings, and retrieval
+│   ├── __init__.py
+│   ├── __main__.py         # CLI entrypoint: python -m rag_pipeline scrape|embed|query
+│   ├── config.py           # Shared constants and environment helpers
+│   ├── scraper.py          # HTML-to-Markdown scraping and article formatting
+│   ├── embeddings.py       # Chunking, embedding generation, and JSONL persistence
+│   └── retrieval.py        # Hybrid BM25 + cosine retrieval and answer generation
+├── embeddings.jsonl        # Stored chunk embeddings (generated)
+├── infopark_news.md        # Scraped news articles in Markdown (generated)
+├── news_chunk_1.md         # Chunked article batch (generated)
 ├── requirements.txt
 ├── pyproject.toml
 ├── uv.lock
 ├── .python-version
-├── WINDOWS_SETUP.md     # Windows-specific setup notes
+├── WINDOWS_SETUP.md        # Windows-specific setup notes
 ├── INDEX.md
 └── .gitignore
 ```
